@@ -1,0 +1,119 @@
+<mujoco model="test_rig_scene">
+  <compiler angle="radian" meshdir="./meshes" eulerseq="zyx"/>
+
+  <option iterations="1" ls_iterations="5" timestep="0.004" integrator="Euler">
+    <flag eulerdamp="disable" />
+  </option>
+
+  <statistic center="0.3 0 0.45" extent="0.8" meansize="0.05"/>
+
+  <default>
+    <geom condim="1" contype="0" conaffinity="0" />
+    <joint axis="0 1 0" armature="0.005" damping="0.0" />
+    <position forcerange="-3.0 3.0" inheritrange="1" kp="35" kv="0" />
+    <default class="hipY">
+        <joint range="-0.3 1.0" frictionloss="0.3" />
+      </default>
+      <default class="knee">
+        <joint range="-0.1 1.5" frictionloss="1.0" />
+      </default>
+    <default class="visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.75294 0.75294 0.75294 1"/>
+    </default>
+    <default class="rig_visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.5 0.1 0.0 1"/>
+    </default>
+    <default class="coupler_visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.05 0.05 0.05 1"/>
+    </default>
+    <default class="leg_visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.0 0.1 0.1 1"/>
+    </default>
+    <default class="collision">
+      <geom group="3" type="capsule"/>
+      <default class="base_plate_collision">
+        <geom size="0.25 0.005 0.105" pos="0.13 -0.005 0" type="box"/>
+      </default>
+      <default class="pipe_collision">
+        <!-- MJX cannot detect collisions between cylinder and box, so using capsules instead. But this hasn't been used yet-->
+        <!-- <geom size="0.01 0.02" type="cylinder"/> -->
+        <geom size="0.025" pos="0 0 0" quat="1 0 0 0"/>
+      </default>
+      <default class="upper_leg_collision">
+        <geom size="0.025" fromto="0 0 0 0.16 0.004 0"/>
+      </default>
+      <default class="lower_leg_collision">
+        <!-- <geom size="0.002" fromto="0 0 0.02 0 0 -0.19"/> -->
+        <geom size="0.01" fromto="0 0 0 0.14 -0.01 0"/>
+      </default>
+      <default class="lower_leg_collision_new">
+        <!-- <geom size="0.002" fromto="0 0 0.02 0 0 -0.19"/> -->
+        <geom size="0.015" fromto="0 -0.01 0 0.2 -0.045 0"/>
+      </default>
+      <default class="foot">
+        <geom type="sphere" size="0.022" pos="0 0 -0.21012" solimp="0.9 .95 0.022" contype="0" conaffinity="1" />
+      </default>
+    </default>
+    <site size="0.001" rgba="0.5 0.5 0.1 0.8" group="4"/>
+  </default>
+
+  <asset>
+    <mesh name="test_rig_base" file="test_rig_base_20.0.obj" scale="0.001 0.001 0.001" />
+    <mesh name="test_rig_pipe_coupler" file="test_rig_pipe_coupler_with_bearing_32.1.obj" scale="0.001 0.001 0.001" />
+    <mesh name="leg_upper" file="leg_upper_with_motor_v1.5.obj" scale="0.001 0.001 0.001" />
+    <mesh name="leg_lower" file="leg_lower_v3.obj" scale="0.001 0.001 0.001" />
+  </asset>
+
+  <worldbody>
+    <body name="base_rig_link" pos="0 0 0" quat="0.707 0.707 0 0">
+      <inertial pos="0 0 0" quat="1 0 0 0" mass="1.0" diaginertia="0.01 0.01 0.01" />
+      <camera name="side" pos="0 0.2 1" quat="1 0 0 0" mode="trackcom"/>
+      <camera name="top" pos="0 0.5 0.8" quat="0.9659258 -0.258819 0 0" mode="trackcom"/>
+      <geom class="rig_visual" mesh="test_rig_base"/>
+      <geom name="base_plate_collision" class="base_plate_collision"/>
+      <body name="pipe_coupler" pos="0 0.05 0">
+        <inertial pos="-0.069123 0 0" quat="1 0 0 0" mass="0.012" diaginertia="0.0001 0.0002 0.0002" />
+        <joint name="base_rig_pipe_coupler" pos="0 0 0" axis="0 1 0" type="slide" range="0.03 0.5" />
+        <geom class="coupler_visual" mesh="test_rig_pipe_coupler"/>
+        <body name="upper_leg" pos="0 0 0">
+          <inertial pos="0.10348 -0.0014 0.000274" quat="1 0 0 0" mass="0.340" diaginertia="0.00003 0.0002 0.0002" />
+          <joint class="hipY" name="hipY" pos="0 0 0" axis="0 0 -1" />
+          <site name="imu" pos="0 0 0" size="0.01"/>
+          <geom class="leg_visual" mesh="leg_upper"/>
+          <!-- <geom name="sphere_knee" class="foot" pos="0.203 -0.038 0"/> -->
+          <body name="lower_leg" pos="0.203 -0.038 0" quat="0 0 1 0">
+            <inertial pos="0.1193 -0.01598 0" quat="1 0 0 0" mass="0.058" diaginertia="0.00003 0.0002 0.0002" />
+            <joint class="knee" name="knee" pos="0 0 0" axis="0 0 -1" />
+            <geom class="leg_visual" mesh="leg_lower"/>
+            <site name="foot_ep" pos="0.19716 -0.04146 0" size="0.01"/>
+            <geom name="sphere" class="foot" pos="0.19716 -0.04146 0"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <sensor>
+    <framepos objtype="site" objname="foot_ep" name="foot_pos" reftype="site" refname="imu"/>
+    <touch name="foot_contact" site="foot_ep"/>
+  </sensor>
+
+  <actuator>
+    <position class="hipY" name="hipY" joint="hipY"/>
+    <position class="knee" name="knee" joint="knee"/>
+  </actuator>
+
+  <keyframe>
+    <!-- <key name="home" qpos="0.08 0 0.1" ctrl="0 0.1"/> -->
+    <key name="1" qpos="0.0309907 0.107984 -0.102247" ctrl="0.0965 -0.1" />
+    <key name="2" qpos="0.0298455 -0.172976 -0.101647" ctrl="-0.183 -0.1" />
+    <key name="3" qpos="0.0366722 -0.199766 -0.0639156" ctrl="-0.209 -0.044" />
+    <key name="4" qpos="0.081306 0.0481592 0.15186" ctrl="0.038 0.172" />
+    <key name="5" qpos="0.120326 0.237538 0.351932" ctrl="0.2265 0.372" />
+    <key name="6" qpos="0.276976 0.731249 1.30054" ctrl="0.7205 1.316" />
+    <key name="7" qpos="0.286923 0.806238 1.38243" ctrl="0.7985 1.396" />
+    <key name="home" qpos="0.0309907 0.107984 -0.102247" ctrl="0.0965 -0.1" />
+    <key name="stand" qpos="0.141966 0.024792 0.499634" ctrl="0.0185 0.516" />
+  </keyframe>
+
+</mujoco>

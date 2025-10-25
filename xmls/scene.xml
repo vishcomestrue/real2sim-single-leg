@@ -1,0 +1,32 @@
+<mujoco model="test rig scene">
+  <include file="test_rig.xml"/>
+
+  <statistic center="0.3 0 0.45" extent="0.8" meansize="0.05"/>
+
+  <visual>
+    <headlight diffuse="1 1 1" ambient="1 1 1" specular="0 0 0"/>
+    <!-- <rgba haze="0.15 0.25 0.35 1"/> -->
+    <global azimuth="120" elevation="-20"/>
+    <map force="0.3" zfar="30"/>
+    <scale forcewidth="0.1" contactwidth="0.2" contactheight="0.1" connect="0.2" com="0.2" camera="0.3" light="0.3" selectpoint="0.2" jointlength="0.5" jointwidth="0.1" actuatorlength="0.4" actuatorwidth="0.2" framelength="1" framewidth="0.05" constraint="0.1" slidercrank="0.2"/>
+    <quality shadowsize="4096" offsamples="8"/>
+  </visual>
+
+  <asset>
+    <!-- <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/> -->
+    <texture type="skybox" builtin="gradient" rgb1="0.15 0.15 0.15" rgb2="0.05 0.05 0.05" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="flat" rgb1="0.8 0.8 0.8" width="512" height="512"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" reflectance="0.1" rgba="0 0 0 0.0"/>
+  </asset>
+
+  <worldbody>
+    <!-- <light pos="0 0 1.5" dir="0 0 -1" diffuse="0.8 0.8 0.8" specular="0 0 0" directional="true" castshadow="false"/>
+    <light pos="1 1 1" diffuse="0.4 0.4 0.4" specular="0 0 0" directional="false" castshadow="false"/>
+    <light pos="-1 1 1" diffuse="0.4 0.4 0.4" specular="0 0 0" directional="false" castshadow="false"/>
+    <light pos="2 0 0.5" diffuse="0.5 0.5 0.5" specular="0 0 0" directional="false" castshadow="false"/>
+    <light pos="-2 0 0.5" diffuse="0.5 0.5 0.5" specular="0 0 0" directional="false" castshadow="false"/> -->
+    <!-- <geom name="floor" size="0 0 0.05" type="plane" material="groundplaneworld" friction="1.0 0.005 0.0001" solref="0.02 " solimp="0.9 0.95 0.001" solmix="1.0" /> -->
+    <geom name="floor" size="0 0 0.01" type="plane" material="groundplane" contype="1" conaffinity="0" priority="1" friction="0.6" condim="3"/>
+  </worldbody>
+ 
+</mujoco>
