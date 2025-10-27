@@ -158,6 +158,45 @@ class DynamixelController:
 
         return positions
 
+    def dynamixel_to_radians(self, dxl_position, motor_id):
+        """
+        Convert Dynamixel position units to radians, with calibration offset removed.
+
+        Args:
+            dxl_position: Position in Dynamixel units (0-4095)
+            motor_id: Motor ID to apply the correct calibration offset
+
+        Returns:
+            float: Position in radians
+        """
+        # Remove calibration offset if available
+        position = dxl_position
+        if self.calibrated and motor_id in self.position_offsets:
+            position -= self.position_offsets[motor_id]
+
+        # Convert Dynamixel units to radians
+        # Reverse of radians_to_dynamixel_raw conversion
+        radians = (position - self.DXL_CENTER_POSITION) * math.pi / 2048
+
+        return radians
+
+    def read_positions_radians(self):
+        """
+        Read current positions from all motors and return in radians.
+
+        Returns:
+            dict: {motor_id: position_in_radians} or None if error
+        """
+        dxl_positions = self.read_positions()
+        if dxl_positions is None:
+            return None
+
+        positions_rad = {}
+        for motor_id, dxl_pos in dxl_positions.items():
+            positions_rad[motor_id] = self.dynamixel_to_radians(dxl_pos, motor_id)
+
+        return positions_rad
+
     def calibrate(self, initial_control_values):
         """
         Calibrate motor positions based on initial control values from MuJoCo.
