@@ -9,8 +9,10 @@ import mujoco.viewer
 import numpy as np
 import os
 import argparse
+import time
 from position_monitor import PositionMonitor
-from dynamixel_controller import DynamixelController
+from fast_dynamixel_controller import FastDynamixelController
+from sim2real_plotter import Sim2RealPlotter
 
 def main():
     # Parse command line arguments
@@ -18,6 +20,9 @@ def main():
     parser.add_argument("--motors", action="store_true", help="Enable real Dynamixel motor synchronization")
     parser.add_argument("--port", type=str, default="/dev/ttyUSB0", help="Serial port for Dynamixel motors (default: /dev/ttyUSB0)")
     parser.add_argument("--motor-ids", type=int, nargs=2, default=[1, 2], help="Motor IDs for hipY and knee (default: 1 2)")
+    parser.add_argument("--baudrate", type=int, default=2000000, help="Motor baudrate (default: 2000000 = 2Mbps)")
+    parser.add_argument("--control-rate", type=float, default=20.0, help="Control loop rate in Hz (default: 20)")
+    parser.add_argument("--plot", action="store_true", help="Enable real-time sim2real plotting")
     args = parser.parse_args()
 
     # Get the path to the XML file
@@ -48,8 +53,26 @@ def main():
     else:
         print(f"Found actuators - hipY: {hip_actuator_id}, knee: {knee_actuator_id}")
 
+    # Get joint IDs for reading qpos
+    hip_joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "hipY")
+    knee_joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "knee")
+
+    if hip_joint_id < 0 or knee_joint_id < 0:
+        print("Warning: Could not find hipY or knee joints")
+    else:
+        print(f"Found joints - hipY: {hip_joint_id}, knee: {knee_joint_id}")
+
     # Initialize position monitor
     position_monitor = PositionMonitor(["hipY", "knee"])
+
+    # Initialize plotter if enabled
+    plotter = None
+    if args.plot:
+        print("\n[Sim2Real Plotter] Initializing real-time plotting...")
+        plotter = Sim2RealPlotter(joint_names=["hipY", "knee"])
+        print("[Sim2Real Plotter] Enabled")
+    else:
+        print("\n[Sim2Real Plotter] Disabled. Use --plot flag to enable real-time plotting.")
 
     # Reset to keyframe "1" if it exists
     key_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, "1")
@@ -61,10 +84,12 @@ def main():
     dynamixel_controller = None
     if args.motors:
         print("\n[Motor Sync] Initializing Dynamixel motors...")
-        dynamixel_controller = DynamixelController(
+        dynamixel_controller = FastDynamixelController(
             port=args.port,
             motor_ids=args.motor_ids,
-            joint_names=["hipY", "knee"]
+            joint_names=["hipY", "knee"],
+            baudrate=args.baudrate,
+            use_sync_read=True  # Use GroupSyncRead for better performance
         )
         if not dynamixel_controller.connect():
             print("[Motor Sync] Failed to connect to motors. Continuing without motor sync.")
@@ -93,31 +118,66 @@ def main():
     print("  - Backspace: Reset simulation")
     print("  - Esc: Exit viewer")
 
+    # Setup control timing
+    control_dt = 1.0 / args.control_rate
+    steps_per_control = max(1, int(control_dt / model.opt.timestep))
+    last_control_time = time.time()
+    print(f"\n[Control Rate] {args.control_rate} Hz ({control_dt*1000:.1f}ms period)")
+    print(f"[Control Rate] Running {steps_per_control} simulation steps per control cycle")
+    print(f"[MuJoCo] Simulation timestep: {model.opt.timestep*1000:.2f}ms\n")
+
     try:
         with mujoco.viewer.launch_passive(model, data) as viewer:
             # Simulation loop
             while viewer.is_running():
-                # Step the simulation
-                mujoco.mj_step(model, data)
+                current_time = time.time()
 
-                # Read and monitor control commands
-                if hip_actuator_id >= 0 and knee_actuator_id >= 0:
-                    # Read control commands (what the sliders set)
-                    hip_ctrl = data.ctrl[hip_actuator_id]
-                    knee_ctrl = data.ctrl[knee_actuator_id]
+                # Step the simulation (multiple times to match control rate)
+                for _ in range(steps_per_control):
+                    mujoco.mj_step(model, data)
 
-                    # Update position monitor
-                    position_monitor.update_positions([hip_ctrl, knee_ctrl])
+                # Control cycle at specified rate
+                if current_time - last_control_time >= control_dt:
+                    if hip_actuator_id >= 0 and knee_actuator_id >= 0 and hip_joint_id >= 0 and knee_joint_id >= 0:
+                        # 1. Read MuJoCo joint positions (qpos)
+                        hip_qpos = data.qpos[hip_joint_id]
+                        knee_qpos = data.qpos[knee_joint_id]
 
-                    # Send positions to real motors if enabled
-                    if dynamixel_controller is not None:
-                        dynamixel_controller.write_positions([hip_ctrl, knee_ctrl])
+                        # 2. Read MuJoCo control commands (from sliders)
+                        hip_ctrl = data.ctrl[hip_actuator_id]
+                        knee_ctrl = data.ctrl[knee_actuator_id]
+
+                        # 3. Read real motor positions (if motors enabled)
+                        motor_positions_rad = None
+                        if dynamixel_controller is not None:
+                            motor_positions_rad = dynamixel_controller.read_positions_radians()
+
+                        # 4. Write commands to motors
+                        if dynamixel_controller is not None:
+                            dynamixel_controller.write_positions([hip_ctrl, knee_ctrl])
+
+                        # 5. Update position monitor (currently shows ctrl values)
+                        # TODO: Update to show comparison of qpos, ctrl, and motor positions
+                        position_monitor.update_positions([hip_ctrl, knee_ctrl])
+
+                        # 6. Update plotter if enabled
+                        if plotter is not None:
+                            qpos = {"hipY": hip_qpos, "knee": knee_qpos}
+                            ctrl = {"hipY": hip_ctrl, "knee": knee_ctrl}
+                            plotter.update(current_time, qpos, ctrl, motor_positions_rad)
+
+                    last_control_time = current_time
 
                 # Sync the viewer
                 viewer.sync()
     finally:
         # Clean up position monitor
         position_monitor.close()
+
+        # Save and close plotter
+        if plotter is not None:
+            plotter.save()
+            plotter.close()
 
         # Disconnect Dynamixel motors
         if dynamixel_controller is not None:
