@@ -10,7 +10,6 @@ import numpy as np
 import os
 import argparse
 import time
-from position_monitor import PositionMonitor
 from fast_dynamixel_controller import FastDynamixelController
 from sim2real_plotter import Sim2RealPlotter
 
@@ -61,9 +60,6 @@ def main():
         print("Warning: Could not find hipY or knee joints")
     else:
         print(f"Found joints - hipY: {hip_joint_id}, knee: {knee_joint_id}")
-
-    # Initialize position monitor
-    position_monitor = PositionMonitor(["hipY", "knee"])
 
     # Initialize plotter if enabled
     plotter = None
@@ -156,11 +152,7 @@ def main():
                         if dynamixel_controller is not None:
                             dynamixel_controller.write_positions([hip_ctrl, knee_ctrl])
 
-                        # 5. Update position monitor (currently shows ctrl values)
-                        # TODO: Update to show comparison of qpos, ctrl, and motor positions
-                        position_monitor.update_positions([hip_ctrl, knee_ctrl])
-
-                        # 6. Update plotter if enabled
+                        # 5. Update plotter if enabled
                         if plotter is not None:
                             qpos = {"hipY": hip_qpos, "knee": knee_qpos}
                             ctrl = {"hipY": hip_ctrl, "knee": knee_ctrl}
@@ -171,9 +163,6 @@ def main():
                 # Sync the viewer
                 viewer.sync()
     finally:
-        # Clean up position monitor
-        position_monitor.close()
-
         # Save and close plotter
         if plotter is not None:
             plotter.save()
