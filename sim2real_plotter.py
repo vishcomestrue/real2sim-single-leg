@@ -56,8 +56,6 @@ class Sim2RealPlotter:
             ax = self.axes[0, i]
             ax.set_ylabel('Position (rad)', fontsize=10)
             ax.grid(True, alpha=0.3)
-            ax.legend(['Sim (qpos)', 'Reality (motor)', 'Command (ctrl)'],
-                     loc='upper right', fontsize=8)
 
         # Row 2: Tracking Error (Command vs Reality)
         for i, name in enumerate(self.joint_names):
@@ -65,7 +63,6 @@ class Sim2RealPlotter:
             ax.set_ylabel('Tracking Error (rad)', fontsize=10)
             ax.grid(True, alpha=0.3)
             ax.axhline(y=0, color='k', linestyle='-', linewidth=0.5, alpha=0.5)
-            ax.legend(['ctrl - motor'], loc='upper right', fontsize=8)
 
         # Row 3: Sim2Real Gap
         for i, name in enumerate(self.joint_names):
@@ -74,7 +71,6 @@ class Sim2RealPlotter:
             ax.set_xlabel('Time (s)', fontsize=10)
             ax.grid(True, alpha=0.3)
             ax.axhline(y=0, color='k', linestyle='-', linewidth=0.5, alpha=0.5)
-            ax.legend(['qpos - motor'], loc='upper right', fontsize=8)
 
         plt.tight_layout()
         plt.show(block=False)
@@ -84,15 +80,18 @@ class Sim2RealPlotter:
         self.lines = {}
         for i, name in enumerate(self.joint_names):
             # Row 1: Position tracking (3 lines per subplot)
-            self.lines[f'{name}_qpos'], = self.axes[0, i].plot([], [], 'b--', linewidth=2, label='Sim')
-            self.lines[f'{name}_motor'], = self.axes[0, i].plot([], [], 'r-', linewidth=2, label='Reality')
-            self.lines[f'{name}_ctrl'], = self.axes[0, i].plot([], [], 'g:', linewidth=1.5, alpha=0.7, label='Command')
+            self.lines[f'{name}_qpos'], = self.axes[0, i].plot([], [], 'b--', linewidth=2, label='Sim (qpos)')
+            self.lines[f'{name}_motor'], = self.axes[0, i].plot([], [], 'r-', linewidth=2, label='Reality (motor)')
+            self.lines[f'{name}_ctrl'], = self.axes[0, i].plot([], [], 'g:', linewidth=1.5, alpha=0.7, label='Command (ctrl)')
+            self.axes[0, i].legend(loc='upper right', fontsize=8)
 
             # Row 2: Tracking error
-            self.lines[f'{name}_track_err'], = self.axes[1, i].plot([], [], 'purple', linewidth=1.5)
+            self.lines[f'{name}_track_err'], = self.axes[1, i].plot([], [], 'purple', linewidth=1.5, label='ctrl - motor')
+            self.axes[1, i].legend(loc='upper right', fontsize=8)
 
             # Row 3: Sim2Real gap
-            self.lines[f'{name}_sim2real'], = self.axes[2, i].plot([], [], 'orange', linewidth=1.5)
+            self.lines[f'{name}_sim2real'], = self.axes[2, i].plot([], [], 'orange', linewidth=1.5, label='qpos - motor')
+            self.axes[2, i].legend(loc='upper right', fontsize=8)
 
     def update(self, timestamp, qpos, ctrl, motor_pos):
         """
@@ -196,6 +195,19 @@ class Sim2RealPlotter:
 
         # Force final update
         self.force_update()
+
+        # Reset all axes to show complete data (override any manual zoom/pan)
+        for i in range(len(self.joint_names)):
+            for row in range(3):
+                ax = self.axes[row, i]
+                # Clear autoscale flags and reset to show all data
+                ax.autoscale(enable=True, axis='both')
+                ax.relim()
+                ax.autoscale_view()
+
+        # Redraw with full data view
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
 
         # Save with high DPI
         self.fig.savefig(filename, dpi=150, bbox_inches='tight')
